@@ -1,9 +1,5 @@
 import math
 import aiohttp
-from aiokafka import (
-    AIOKafkaConsumer,
-    ConsumerRecord
-)
 import asyncio
 from async_timeout import timeout
 from binance.client import Client as BinanceClient
@@ -24,7 +20,6 @@ from typing import (
     Tuple,
 )
 from web3 import Web3
-import conf
 import hummingbot
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.core.clock cimport Clock
@@ -184,7 +179,6 @@ cdef class InFlightOrder:
     @property
     def quote_asset(self) -> str:
         return BinanceMarket.split_symbol(self.symbol)[1]
-
 
 
 cdef class TradingRule:
@@ -583,29 +577,6 @@ cdef class BinanceMarket(MarketBase):
                                                  order_type
                                              ))
                     self.c_stop_tracking_order(tracked_order.client_order_id)
-
-    async def _iter_kafka_messages(self, topic: str) -> AsyncIterable[ConsumerRecord]:
-        while True:
-            try:
-                consumer = AIOKafkaConsumer(topic, loop=self._ev_loop, bootstrap_servers=conf.kafka_bootstrap_server)
-                await consumer.start()
-                partition = list(consumer.assignment())[0]
-                await consumer.seek_to_end(partition)
-
-                while True:
-                    response = await consumer.getmany(partition, timeout_ms=1000)
-                    if partition in response:
-                        for record in response[partition]:
-                            yield record
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network(
-                    "Unknown error. Retrying after 5 seconds.",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch message from Kafka. Check network connection."
-                )
-                await asyncio.sleep(5.0)
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
