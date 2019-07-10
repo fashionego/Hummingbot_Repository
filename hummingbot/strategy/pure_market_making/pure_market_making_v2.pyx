@@ -480,18 +480,23 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                                           pricing_proposal)
         if sizing_proposal.buy_order_sizes[0] > 0 or sizing_proposal.sell_order_sizes[0] > 0:
             actions |= ORDER_PROPOSAL_ACTION_CREATE_ORDERS
+            self.logger().info(f"Actions should be to create: {actions}")
 
         if maker_market.name not in self.RADAR_RELAY_TYPE_EXCHANGES:
+            self.logger().info(f"Current active orders are {active_orders}")
             for active_order in active_orders:
                 # If there are active orders, and active order cancellation is needed, then do the following:
                 #  1. Check the time to cancel for each order, and see if cancellation should be proposed.
                 #  2. Record each order id that needs to be cancelled.
                 #  3. Set action to include cancel orders.
+
                 if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.append(active_order.client_order_id)
+                    self.logger().info(f"cancel_order_ids are {cancel_order_ids}")
 
             if len(cancel_order_ids) > 0:
                 actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
+                self.logger().info(f"Actions should be to cancel: {actions}")
 
         return OrdersProposal(actions,
                               OrderType.LIMIT,
@@ -591,6 +596,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                                 float(price),
                                                 float(quantity))
         self._tracked_maker_orders[market_info][order_id] = limit_order
+        self.logger().info(f"Order: {order_id} is BEING tracked")
         self._shadow_tracked_maker_orders[market_info][order_id] = limit_order
         self._order_id_to_market_info[order_id] = market_info
         self._shadow_order_id_to_market_info[order_id] = market_info
@@ -598,6 +604,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
     cdef c_stop_tracking_order(self, object market_info, str order_id):
         if market_info in self._tracked_maker_orders and order_id in self._tracked_maker_orders[market_info]:
             del self._tracked_maker_orders[market_info][order_id]
+            self.logger().info(f"Order: {order_id} is NOT BEING tracked")
             if len(self._tracked_maker_orders[market_info]) < 1:
                 del self._tracked_maker_orders[market_info]
         if order_id in self._order_id_to_market_info:
@@ -634,6 +641,8 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         # Cancel orders.
         if actions & ORDER_PROPOSAL_ACTION_CANCEL_ORDERS:
+            self.logger().info(f"Actions should be cancel: {actions}")
+            self.logger().info(f"Cancel order ids are {orders_proposal.cancel_order_ids}")
             for order_id in orders_proposal.cancel_order_ids:
                 self.log_with_clock(
                     logging.INFO,
@@ -643,6 +652,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
         # Create orders.
         if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
+            self.logger().info(f"Actions should be create: {actions}")
             if orders_proposal.buy_order_sizes[0] > 0:
                 if orders_proposal.buy_order_type is OrderType.LIMIT and orders_proposal.buy_order_prices[0] > 0:
                     if self._logging_options & self.OPTION_LOG_CREATE_ORDER:
@@ -669,6 +679,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             orders_proposal.buy_order_sizes[idx]
                         )
                         self._time_to_cancel[bid_order_id] = self._current_timestamp + self._cancel_order_wait_time
+                        self.logger().info(f'Time to cancel for {bid_order_id} is {self._time_to_cancel[bid_order_id]}')
                 elif orders_proposal.buy_order_type is OrderType.MARKET:
                     raise RuntimeError("Market buy order in orders proposal is not supported yet.")
 
@@ -698,5 +709,6 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                             orders_proposal.sell_order_sizes[idx]
                         )
                         self._time_to_cancel[ask_order_id] = self._current_timestamp + self._cancel_order_wait_time
+                        self.logger().info(f'Time to cancel for {ask_order_id} is {self._time_to_cancel[ask_order_id]}')
                 elif orders_proposal.sell_order_type is OrderType.MARKET:
                     raise RuntimeError("Market sell order in orders proposal is not supported yet.")

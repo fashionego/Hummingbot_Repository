@@ -485,6 +485,7 @@ cdef class BinanceMarket(MarketBase):
                     if order_update.code == 2013 or order_update.message == "Order does not exist.":
                         order_type = OrderType.LIMIT if order_update["type"] == "LIMIT" else OrderType.MARKET
                         self.c_trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG, MarketOrderFailureEvent(self._current_timestamp, client_order_id, order_type))
+                        self.logger().info("Stopping tracking of order due to order update code")
                         self.c_stop_tracking_order(client_order_id)
                     else:
                         self.logger().network(
