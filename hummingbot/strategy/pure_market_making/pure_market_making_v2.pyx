@@ -200,6 +200,18 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     @property
     def active_maker_orders(self) -> List[Tuple[MarketBase, LimitOrder]]:
+        self.logger().info(f"Active Maker Orders for display purposes")
+        self.logger().info(f"Tracked order items are {self._tracked_maker_orders.items()}")
+        self.logger().info(f"In flight cancels is {self._in_flight_cancels}")
+        self.logger().info("Returned value is ")
+        self.logger().info([
+            (market_info.market, limit_order)
+            for market_info, orders_map in self._tracked_maker_orders.items()
+            for limit_order in orders_map.values()
+            if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
+                self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
+        ])
+
         return [
             (market_info.market, limit_order)
             for market_info, orders_map in self._tracked_maker_orders.items()
@@ -210,6 +222,24 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
 
     @property
     def market_info_to_active_orders(self) -> Dict[MarketInfo, List[LimitOrder]]:
+        for market_info in self._market_infos.values():
+            self.logger().info(f"Active Maker Orders used in strategy")
+            self.logger().info(f"Tracked order items are {self._tracked_maker_orders.get(market_info, {}).values()}")
+            self.logger().info(f"In flight cancels is {self._in_flight_cancels}")
+            for limit_order in self._tracked_maker_orders.get(market_info, {}).values():
+                self.logger().info("Cancel timestamp is ", )
+        self.logger().info("Returned value is ")
+        self.logger().info({
+        market_info: [
+            limit_order
+            for limit_order in self._tracked_maker_orders.get(market_info, {}).values()
+            if (self._in_flight_cancels.get(limit_order.client_order_id, 0) <
+                self._current_timestamp - self.CANCEL_EXPIRY_DURATION)
+        ]
+        for market_info
+        in self._market_infos.values()
+        })
+
         return {
             market_info: [
                 limit_order
@@ -406,6 +436,9 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
         for k in keys_to_delete:
             del self._in_flight_cancels[k]
 
+        self.logger().info(f"keys_to_delete is {keys_to_delete}")
+        self.logger().info(f"In flight cancels is {self._in_flight_cancels}")
+
         # Track the cancel and tell maker market to cancel the order.
         self._in_flight_cancels[order_id] = self._current_timestamp
         market.c_cancel(market_info.symbol, order_id)
@@ -439,6 +472,7 @@ cdef class PureMarketMakingStrategyV2(StrategyBase):
                                           f"making may be dangerous when markets or networks are unstable.")
 
             market_info_to_active_orders = self.market_info_to_active_orders
+            self.logger().info(f"Market info to active orders returns {market_info_to_active_orders}")
 
             for market_info in self._market_infos.values():
                 self._delegate_lock = True
