@@ -276,6 +276,10 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         finally:
             self._last_timestamp = timestamp
 
+    cdef object c_cancel_all_open_orders(self, object market_info, list active_orders):
+
+
+
     cdef object c_get_orders_proposal_for_market_info(self, object market_info, list active_orders):
         cdef:
             double last_trade_price
@@ -285,6 +289,8 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         # Before doing anything, ask the filter delegate whether to proceed or not.
         if not self._filter_delegate.c_should_proceed_with_processing(self, market_info, active_orders):
             return self.NO_OP_ORDERS_PROPOSAL
+
+        # No orders are proposed
 
         # If there are no active orders, then do the following:
         #  1. Ask the pricing delegate on what are the order prices.
@@ -350,6 +356,12 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             str order_id = order_completed_event.order_id
             object market_info = self._sb_order_tracker.c_get_market_pair_from_order_id(order_id)
             LimitOrder limit_order_record
+
+        # check if filled order is buy or sell
+        # if filled order is buy, adjust the cancel time for sell order
+        # else adjust the cancel time for buy order
+        # set the time to place_orders as current_ts + order replenish time
+        # check if current ts is greater than that time
 
         if market_info is not None:
             limit_order_record = self._sb_order_tracker.c_get_limit_order(market_info, order_id)

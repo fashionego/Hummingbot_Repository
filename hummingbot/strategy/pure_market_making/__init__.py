@@ -2,6 +2,7 @@
 
 from .pure_market_pair import PureMarketPair
 from .pure_market_making_v2 import PureMarketMakingStrategyV2
+from .pure_market_making_v3 import PureMarketMakingStrategyV3
 from .constant_multiple_spread_pricing_delegate import ConstantMultipleSpreadPricingDelegate
 from .staggered_multiple_size_sizing_delegate import StaggeredMultipleSizeSizingDelegate
 
@@ -9,6 +10,7 @@ from .staggered_multiple_size_sizing_delegate import StaggeredMultipleSizeSizing
 __all__ = [
     PureMarketPair,
     PureMarketMakingStrategyV2,
+    PureMarketMakingStrategyV3,
     ConstantMultipleSpreadPricingDelegate,
     StaggeredMultipleSizeSizingDelegate
 ]
