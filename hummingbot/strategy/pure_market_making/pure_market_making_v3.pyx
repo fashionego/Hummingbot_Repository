@@ -78,6 +78,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
                  pricing_delegate: Optional[OrderPricingDelegate] = None,
                  sizing_delegate: Optional[OrderSizingDelegate] = None,
                  cancel_order_wait_time: float = 60,
+                 replenish_time_delay: float = 60,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  legacy_order_size: float = 1.0,
