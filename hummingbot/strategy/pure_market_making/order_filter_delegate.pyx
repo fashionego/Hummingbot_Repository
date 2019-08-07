@@ -33,15 +33,22 @@ cdef class OrderFilterDelegate:
                                                list active_orders) except? True:
         raise NotImplementedError
 
-    cdef bint c_should_proceed_with_processing(self,
-                                               PureMarketMakingStrategyV3 strategy,
-                                               object market_info,
-                                               list active_orders) except? True
-        raise NotImplementedError
 
     cdef object c_filter_orders_proposal(self,
                                          PureMarketMakingStrategyV2 strategy,
                                          object market_info,
                                          list active_orders,
                                          object orders_proposal):
+        raise NotImplementedError
+
+    cdef object c_filter_orders_proposal_v3(self,
+                                     PureMarketMakingStrategyV3 strategy,
+                                     object market_info,
+                                     object orders_proposal):
+        raise NotImplementedError
+
+    cdef bint c_should_proceed_with_processing_v3(self,
+                                           PureMarketMakingStrategyV3 strategy,
+                                           object market_info,
+                                           list active_orders) except? True:
         raise NotImplementedError

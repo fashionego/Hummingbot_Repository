@@ -37,6 +37,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.pure_market_making.pure_market_making_v2 import PureMarketMakingStrategyV2
+from hummingbot.strategy.pure_market_making.pure_market_making_v3 import PureMarketMakingStrategyV3
 from hummingbot.strategy.pure_market_making import (
     ConstantMultipleSpreadPricingDelegate,
     StaggeredMultipleSizeSizingDelegate
@@ -123,6 +124,16 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
             cancel_order_wait_time=45,
             sizing_delegate=self.staggered_strategy_sizing_delegate,
             pricing_delegate=self.multiple_order_strategy_pricing_delegate,
+            logging_options=logging_options
+        )
+
+        self.delayed_placement_strategy: PureMarketMakingStrategyV3 = PureMarketMakingStrategyV3(
+            [self.market_info],
+            legacy_order_size=1.0,
+            legacy_bid_spread=self.bid_threshold,
+            legacy_ask_spread=self.ask_threshold,
+            cancel_order_wait_time=45,
+            filled_order_replenish_wait_time=10,
             logging_options=logging_options
         )
 
@@ -516,3 +527,17 @@ class PureMarketMakingV2UnitTest(unittest.TestCase):
         self.clock.backtest_til(end_ts)
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_bids))
         self.assertEqual(5, len(self.multi_order_staggered_strategy.active_asks))
+
+    def test_replenish_delay(self):
+        self.clock.remove_iterator(self.strategy)
+        self.clock.add_iterator(self.delayed_placement_strategy)
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size)
+        self.assertEqual(1, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))
+
+        self.simulate_maker_market_trade(True, 5.0)
+
+        self.clock.backtest_til(self.start_timestamp + self.clock_tick_size + 5)
+        self.assertEqual(1, len(self.maker_order_fill_logger.event_log))
+        self.assertEqual(0, len(self.strategy.active_bids))
+        self.assertEqual(1, len(self.strategy.active_asks))

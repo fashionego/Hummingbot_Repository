@@ -2,7 +2,8 @@ from typing import List
 
 from hummingbot.strategy.market_symbol_pair import MarketSymbolPair
 from .data_types import (
-    OrdersProposal
+    OrdersProposal,
+    ORDER_PROPOSAL_ACTION_CREATE_ORDERS
 )
 from .pure_market_making_v3 import PureMarketMakingStrategyV3
 
@@ -43,13 +44,33 @@ cdef class TimeFilterDelegate(OrderFilterDelegate):
     def order_placing_timestamp(self) -> float:
         return self._order_placing_timestamp
 
-    cdef bint c_should_proceed_with_processing(self,
-                                               PureMarketMakingStrategyV3 strategy,
-                                               object market_info,
-                                               list active_orders):
+    cdef object c_filter_orders_proposal_v3(self,
+                                            PureMarketMakingStrategyV3 strategy,
+                                            object market_info,
+                                            object orders_proposal):
+        cdef:
+            int64_t actions = orders_proposal.actions
+
         current_timestamp = strategy._current_timestamp
         if current_timestamp > self._order_placing_timestamp:
-            return True
+            return orders_proposal
         else:
-            return False
+            if actions & ORDER_PROPOSAL_ACTION_CREATE_ORDERS:
+                # set actions to not create orders
+                orders_proposal.actions = actions & 1 << 1
+                # if orders_proposal.buy_order_sizes[0] > 0:
+                #     orders_proposal.buy_order_sizes[0] = 0
+                #
+                # if orders_proposal.sell_order_sizes[0] > 0:
+                #     orders_proposal.sell_order_sizes[0] = 0
+
+            return orders_proposal
+
+    cdef bint c_should_proceed_with_processing_v3(self,
+                                               PureMarketMakingStrategyV3 strategy,
+                                               object market_info,
+                                               list active_orders) except? True:
+        return True
+
+
 

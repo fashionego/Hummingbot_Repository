@@ -80,7 +80,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
                  pricing_delegate: Optional[OrderPricingDelegate] = None,
                  sizing_delegate: Optional[OrderSizingDelegate] = None,
                  cancel_order_wait_time: float = 60,
-                 replenish_delay: float = 60,
+                 filled_order_replenish_wait_time: float = 10,
                  logging_options: int = OPTION_LOG_ALL,
                  limit_order_min_expiration: float = 130.0,
                  legacy_order_size: float = 1.0,
@@ -98,10 +98,9 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
         }
         self._all_markets_ready = False
         self._cancel_order_wait_time = cancel_order_wait_time
-        self._replenish_delay = replenish_delay
+        self._filled_order_replenish_wait_time = filled_order_replenish_wait_time
 
         self._time_to_cancel = {}
-        self._time_to_order = {}
 
         self._logging_options = logging_options
         self._last_timestamp = 0
@@ -276,6 +275,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
                     self.logger().error("Unknown error while generating order proposals.", exc_info=True)
                 finally:
                     self._sb_delegate_lock = False
+                filtered_proposal = self._filter_delegate.c_filter_orders_proposal_v3(self, market_info, orders_proposal)
                 self.c_execute_orders_proposal(market_info, orders_proposal)
         finally:
             self._last_timestamp = timestamp
@@ -287,7 +287,7 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
             list cancel_order_ids = []
 
         # Before doing anything, ask the filter delegate whether to proceed or not.
-        if not self._filter_delegate.c_should_proceed_with_processing(self, market_info, active_orders):
+        if not self._filter_delegate.c_should_proceed_with_processing_v3(self, market_info, active_orders):
             return self.NO_OP_ORDERS_PROPOSAL
 
         # No orders are proposed
@@ -313,8 +313,8 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
                 if self._current_timestamp >= self._time_to_cancel[active_order.client_order_id]:
                     cancel_order_ids.append(active_order.client_order_id)
 
-            if len(cancel_order_ids) > 0:
-                actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
+        if len(cancel_order_ids) > 0:
+            actions |= ORDER_PROPOSAL_ACTION_CANCEL_ORDERS
 
         return OrdersProposal(actions,
                               OrderType.LIMIT,
@@ -360,11 +360,11 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
 
         # check if filled order is buy or sell
         # if filled order is buy, adjust the cancel time for sell order
-        replenish_time_stamp = self._current_timestamp + self._replenish_delay
+        replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
         for _, ask_order in self.active_asks:
             order_id = ask_order.client_order_id
             if order_id in self._time_to_cancel:
-                self._time_to_cancel[order_id] = replenish_time_stamp
+                self._time_to_cancel[order_id] = min(self._time_to_cancel[order_id], replenish_time_stamp)
 
         # set the time to place_orders as current_ts + order replenish time
         # check if current ts is greater than that time
@@ -387,11 +387,11 @@ cdef class PureMarketMakingStrategyV3(StrategyBase):
 
         # check if filled order is buy or sell
         # if filled order is buy, adjust the cancel time for sell order
-        replenish_time_stamp = self._current_timestamp + self._replenish_delay
+        replenish_time_stamp = self._current_timestamp + self._filled_order_replenish_wait_time
         for _, bid_order in self.active_bids:
             order_id = bid_order.client_order_id
             if order_id in self._time_to_cancel:
-                self._time_to_cancel[order_id] = replenish_time_stamp
+                self._time_to_cancel[order_id] = min(self._time_to_cancel[order_id], replenish_time_stamp)
 
         # set the time to place_orders as current_ts + order replenish time
         # check if current ts is greater than that time
