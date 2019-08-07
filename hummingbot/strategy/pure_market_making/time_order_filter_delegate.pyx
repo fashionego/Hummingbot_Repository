@@ -43,7 +43,6 @@ cdef class TimeFilterDelegate(OrderFilterDelegate):
     def order_placing_timestamp(self) -> float:
         return self._order_placing_timestamp
 
-
     cdef bint c_should_proceed_with_processing(self,
                                                PureMarketMakingStrategyV3 strategy,
                                                object market_info,
